@@ -33,4 +33,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        poetry run pytest tests 
+        PYTHONPATH=$PYTHONPATH:$(pwd) poetry run pytest tests 

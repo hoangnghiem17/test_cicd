@@ -30,6 +30,7 @@ jobs:
     - name: Tag Docker image
       run: |
         GIT_SHA=$(git rev-parse --short HEAD)
+        echo "GIT_SHA=${GIT_SHA}"
         docker tag myapp:latest ghcr.io/${{ github.repository }}/myapp:${GIT_SHA}
 
     - name: Push Docker image

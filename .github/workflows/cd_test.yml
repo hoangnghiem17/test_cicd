@@ -23,16 +23,18 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
 
+    - name: Get Git SHA
+      id: git_sha
+      run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
+
     - name: Build Docker image
       run: |
         docker build -t myapp:latest .
 
     - name: Tag Docker image
       run: |
-        GIT_SHA=$(git rev-parse --short HEAD)
-        echo "GIT_SHA=${GIT_SHA}"
-        docker tag myapp:latest ghcr.io/${{ github.repository }}/myapp:${GIT_SHA}
+        docker tag myapp:latest ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}
 
     - name: Push Docker image
       run: |
-        docker push ghcr.io/${{ github.repository }}/myapp:${GIT_SHA}
+        docker push ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}

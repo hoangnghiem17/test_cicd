@@ -29,7 +29,7 @@ jobs:
 
     - name: Build Docker image for Linux
       run: |
-        docker buildx build --platform linux/amd64 -t myapp:latest .
+        docker buildx build --platform linux/amd64 -t myapp:latest . --load
 
     - name: Tag Docker image
       run: |

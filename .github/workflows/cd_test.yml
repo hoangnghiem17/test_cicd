@@ -27,9 +27,9 @@ jobs:
       id: git_sha
       run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
 
-    - name: Build Docker image
+    - name: Build Docker image for Linux
       run: |
-        docker build -t myapp:latest .
+        docker buildx build --platform linux/amd64 -t myapp:latest .
 
     - name: Tag Docker image
       run: |

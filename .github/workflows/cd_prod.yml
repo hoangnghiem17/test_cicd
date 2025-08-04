@@ -25,10 +25,14 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
 
+    - name: Get Git SHA
+      id: git_sha
+      run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
+
     - name: Pull Docker image
       run: |
-        docker pull ghcr.io/${{ github.repository }}/myapp:latest
+        docker pull ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}
 
     - name: Deploy Application
       run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:latest
+        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}

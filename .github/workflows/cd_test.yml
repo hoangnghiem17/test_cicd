@@ -38,3 +38,12 @@ jobs:
     - name: Push Docker image
       run: |
         docker push ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}
+
+    - name: Save Git SHA
+      run: echo "${{ steps.git_sha.outputs.sha }}" > git_sha.txt
+
+    - name: Upload Git SHA Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: git-sha
+        path: git_sha.txt

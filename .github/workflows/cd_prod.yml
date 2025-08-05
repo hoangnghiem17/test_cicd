@@ -25,14 +25,19 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
 
-    - name: Get Git SHA
-      id: git_sha
-      run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
+    - name: Download Git SHA Artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: git-sha
+
+    - name: Read Git SHA
+      id: read_sha
+      run: echo "GIT_SHA=$(cat git_sha.txt)" >> $GITHUB_ENV
 
     - name: Pull Docker image
       run: |
-        docker pull ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}
+        docker pull ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
 
     - name: Deploy Application
       run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}
+        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}

@@ -31,7 +31,7 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
 
-    - name: Get Git SHA from CD-Test workflow
+    - name: Get Git SHA from CD-Test workflow (Test)
       id: get_sha
       run: |
         # Get the commit SHA from the workflow run that triggered this

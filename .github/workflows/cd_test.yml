@@ -8,6 +8,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    outputs:
+      git_sha: ${{ steps.git_sha.outputs.sha }}
 
     steps:
     - name: Checkout code
@@ -25,7 +27,7 @@ jobs:
 
     - name: Get Git SHA
       id: git_sha
-      run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
+      run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
     - name: Build Docker image for Linux
       run: |
@@ -38,12 +40,3 @@ jobs:
     - name: Push Docker image
       run: |
         docker push ghcr.io/${{ github.repository }}/myapp:${{ steps.git_sha.outputs.sha }}
-
-    - name: Save Git SHA
-      run: echo "${{ steps.git_sha.outputs.sha }}" > git_sha.txt
-
-    - name: Upload Git SHA Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: git-sha
-        path: git_sha.txt

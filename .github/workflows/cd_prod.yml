@@ -31,15 +31,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
 
-      - name: Download Git SHA Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: git-sha
-          run-id: ${{ github.event.workflow_run.id }}
-
-      - name: Read Git SHA
-        id: read_sha
-        run: echo "GIT_SHA=$(cat git_sha.txt)" >> $GITHUB_ENV
+      - name: Get Git SHA from workflow output
+        run: |
+          echo "GIT_SHA=${{ github.event.workflow_run.outputs.git_sha }}" >> $GITHUB_ENV
 
       - name: Pull Docker image
         run: |

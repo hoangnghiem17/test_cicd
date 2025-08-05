@@ -5,44 +5,42 @@ on:
     workflows: ["CD-Test Pipeline"]
     types:
       - completed
-    branches:
-      - develop
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
-        name: production
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+      name: production
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop' }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.CR_PAT }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
 
-    - name: Download Git SHA Artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: git-sha
-        run-id: ${{ github.event.workflow_run.id }}
+      - name: Download Git SHA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: git-sha
+          run-id: ${{ github.event.workflow_run.id }}
 
-    - name: Read Git SHA
-      id: read_sha
-      run: echo "GIT_SHA=$(cat git_sha.txt)" >> $GITHUB_ENV
+      - name: Read Git SHA
+        id: read_sha
+        run: echo "GIT_SHA=$(cat git_sha.txt)" >> $GITHUB_ENV
 
-    - name: Pull Docker image
-      run: |
-        docker pull ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
+      - name: Pull Docker image
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
 
-    - name: Deploy Application
-      run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
+      - name: Deploy Application
+        run: |
+          docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}

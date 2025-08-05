@@ -1,15 +1,19 @@
 name: CD-Prod Pipeline
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["CD-Test Pipeline"]
+    types:
+      - completed
     branches:
-      - main
+      - develop
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
         name: production
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
     - name: Checkout code
@@ -29,6 +33,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: git-sha
+        run-id: ${{ github.event.workflow_run.id }}
 
     - name: Read Git SHA
       id: read_sha

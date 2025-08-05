@@ -8,8 +8,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    outputs:
-      git_sha: ${{ steps.git_sha.outputs.sha }}
 
     steps:
     - name: Checkout code

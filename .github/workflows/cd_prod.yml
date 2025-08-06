@@ -5,10 +5,9 @@ permissions:
   contents: read
 
 on:
-  workflow_run:
-    workflows: ["CD-Test Pipeline"]
-    types:
-      - completed
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -17,13 +16,18 @@ jobs:
     environment:
       name: production  # Für manuelles Approval im Environments-Tab
 
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop' }}
-
     steps:
-    - name: Set SHA from triggering workflow
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # Voller Git-Verlauf, um Tags abzufragen
+
+    - name: Get commit SHA behind latest-tested tag
+      id: get_sha
       run: |
-        echo "GIT_SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
-        echo "Using SHA from CD-Test: ${{ github.event.workflow_run.head_sha }}"
+        GIT_SHA=$(git rev-parse latest-tested)
+        echo "GIT_SHA=$GIT_SHA" >> $GITHUB_ENV
+        echo "Commit SHA from latest-tested tag: $GIT_SHA"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2

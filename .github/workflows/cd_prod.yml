@@ -5,19 +5,16 @@ permissions:
   contents: read
 
 on:
-  workflow_run:
-    workflows: ["CD-Test Pipeline"]
-    types:
-      - completed
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
     name: deploy-prod
     runs-on: ubuntu-latest
     environment:
-      name: production
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop' }}
-
+      name: production  # sorgt für manuelles Approval
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -32,19 +29,11 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
 
-    - name: Get Git SHA from CD-Test workflow
-      id: get_sha
-      run: |
-        # Get the commit SHA from the workflow run that triggered this
-        GIT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
-        echo "GIT_SHA=${GIT_SHA}" >> $GITHUB_ENV
-        echo "Using Git SHA from CD-Test: ${GIT_SHA}"
-
     - name: Pull Docker image
       run: |
-        echo "Pulling image with SHA: ${{ env.GIT_SHA }}"
-        docker pull ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
+        echo "Pulling image with SHA: ${{ github.sha }}"
+        docker pull ghcr.io/${{ github.repository }}/myapp:${{ github.sha }}
 
     - name: Deploy Application
       run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
+        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ github.sha }}

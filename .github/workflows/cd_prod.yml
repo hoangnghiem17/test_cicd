@@ -5,19 +5,25 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["CD-Test Pipeline"]
+    types:
+      - completed
 
 jobs:
   deploy:
     name: deploy-prod
     runs-on: ubuntu-latest
     environment:
-      name: production  # sorgt für manuelles Approval
+      name: production  # Für manuelles Approval im Environments-Tab
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop' }}
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - name: Set SHA from triggering workflow
+      run: |
+        echo "GIT_SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+        echo "Using SHA from CD-Test: ${{ github.event.workflow_run.head_sha }}"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -31,9 +37,9 @@ jobs:
 
     - name: Pull Docker image
       run: |
-        echo "Pulling image with SHA: ${{ github.sha }}"
-        docker pull ghcr.io/${{ github.repository }}/myapp:${{ github.sha }}
+        echo "Pulling image with SHA: ${{ env.GIT_SHA }}"
+        docker pull ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
 
     - name: Deploy Application
       run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ github.sha }}
+        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}

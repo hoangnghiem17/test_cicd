@@ -28,8 +28,9 @@ jobs:
       run: |
         docker buildx build --platform linux/amd64 -t myapp:latest . --load
 
-    - name: Tag Docker image
+    - name: Tag Docker image with commit SHA
       run: |
+        echo "Tagging image with SHA: ${{ github.sha }}"
         docker tag myapp:latest ghcr.io/${{ github.repository }}/myapp:${{ github.sha }}
 
     - name: Push Docker image

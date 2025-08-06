@@ -14,7 +14,7 @@ jobs:
     name: deploy-prod
     runs-on: ubuntu-latest
     environment:
-      name: production  # Für manuelles Approval im Environments-Tab
+      name: production  # Für manuelles Approval im Environments
 
     steps:
     - name: Checkout code

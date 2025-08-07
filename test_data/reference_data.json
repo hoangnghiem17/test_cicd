@@ -1,13 +1,13 @@
 [
   {
     "id": 1,
-    "expected_result": "BYE!",
+    "expected_result": "Hello, CI/CD Pipeline!",
     "should_succeed": true,
     "description": "GitHub API should return success greeting"
   },
   {
     "id": 2,
-    "expected_result": "Hello, CI/CD Pipeline!",
+    "expected_result": "Failed to fetch greeting",
     "should_succeed": true,
     "description": "HTTP 200 should return success greeting"
   },

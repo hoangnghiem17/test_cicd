@@ -36,7 +36,7 @@ jobs:
         poetry run python scripts/run_automated_tests.py
 
     - name: Upload Test Results as Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()  # Upload results even if tests fail
       with:
         name: test-results

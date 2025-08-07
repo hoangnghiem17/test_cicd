@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "endpoint": "https://api.github.com",
+    "expected_status": 200,
+    "description": "GitHub API root endpoint"
+  },
+  {
+    "id": 2,
+    "endpoint": "https://httpbin.org/status/200",
+    "expected_status": 200,
+    "description": "HTTP 200 test endpoint"
+  },
+  {
+    "id": 3,
+    "endpoint": "https://httpbin.org/status/404",
+    "expected_status": 404,
+    "description": "HTTP 404 test endpoint"
+  },
+  {
+    "id": 4,
+    "endpoint": "https://httpbin.org/status/500",
+    "expected_status": 500,
+    "description": "HTTP 500 test endpoint"
+  },
+  {
+    "id": 5,
+    "endpoint": "http://192.0.2.1:12345/nonexistent",
+    "expected_status": -1,
+    "description": "Connection timeout test (RFC5737 test IP)"
+  }
+] 

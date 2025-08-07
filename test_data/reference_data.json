@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "expected_result": "BYE!",
+    "should_succeed": true,
+    "description": "GitHub API should return success greeting"
+  },
+  {
+    "id": 2,
+    "expected_result": "Hello, CI/CD Pipeline!",
+    "should_succeed": true,
+    "description": "HTTP 200 should return success greeting"
+  },
+  {
+    "id": 3,
+    "expected_result": "Failed to fetch greeting",
+    "should_succeed": true,
+    "description": "HTTP 404 should return failure message"
+  },
+  {
+    "id": 4,
+    "expected_result": "Failed to fetch greeting",
+    "should_succeed": true,
+    "description": "HTTP 500 should return failure message"
+  },
+  {
+    "id": 5,
+    "expected_result": "Failed to fetch greeting",
+    "should_succeed": true,
+    "description": "Connection timeout should return failure message"
+  }
+] 

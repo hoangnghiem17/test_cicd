@@ -116,18 +116,23 @@ on:
 
 ### Pipeline Steps
 
-1. **Code Checkout**: Retrieve merged develop branch code
+1. **Code Checkout**: Retrieve merged develop branch code with full Git history
 2. **Docker Setup**: Configure Buildx for multi-platform builds
 3. **Registry Login**: Authenticate with GitHub Container Registry
-4. **SHA Generation**: Extract 7-character commit SHA using `git rev-parse --short HEAD`
-5. **Docker Build**: Create linux/amd64 image with `docker buildx build`
-6. **Image Tagging**: Tag image with commit SHA: `ghcr.io/REPO/myapp:SHA`
-7. **Registry Push**: Upload tagged image to GHCR
+4. **Docker Build**: Create linux/amd64 image with `docker buildx build`
+5. **Image Tagging**: Tag image with full commit SHA: `ghcr.io/REPO/myapp:${{ github.sha }}`
+6. **Registry Push**: Upload tagged image to GHCR
+7. **Git Tag Creation**: Create/update `latest-tested` tag pointing to current commit
+   ```bash
+   git tag -f latest-tested ${{ github.sha }}
+   git push origin --force --tags
+   ```
 
 ### Image Versioning Strategy
-- **Format**: `ghcr.io/hoangnghiem17/test_cicd/myapp:SHA`
-- **SHA Source**: Commit SHA from develop branch
-- **Example**: `ghcr.io/hoangnghiem17/test_cicd/myapp:082866e`
+- **Format**: `ghcr.io/hoangnghiem17/test_cicd/myapp:FULL_SHA`
+- **SHA Source**: Full 40-character commit SHA from develop branch
+- **Tag Communication**: `latest-tested` Git tag points to the tested commit
+- **Example**: `ghcr.io/hoangnghiem17/test_cicd/myapp:abc123def456...`
 
 ### Key Features
 - **Immutable versioning**: Each commit gets unique image tag
@@ -141,34 +146,142 @@ on:
 ### Trigger
 ```yaml
 on:
+  push:
+    branches: [main]
+```
+
+### Design Challenge and Evolution
+
+**Original Goal**: Create separate pipelines for test and production with proper SHA traceability and manual approval gates.
+
+**Core Problems Encountered**:
+1. **SHA Mismatch**: CD-Test used develop branch SHA, but CD-Prod referenced main branch SHA
+2. **No Manual Approval**: GitHub Actions doesn't support Environment approval gates with `workflow_run` triggers
+
+### Approaches Comparison Table
+
+| Approach | SHA Access | Manual Approval | Complexity | Repository Impact | Status |
+|----------|------------|-----------------|------------|-------------------|---------|
+| `workflow_run` + `head_sha` | ✅ Works | ❌ Not supported | Low | None | ❌ Failed |
+| GitHub Artifacts | ❌ Limited | ❌ Not supported | Medium | None | ❌ Failed |
+| Workflow Outputs | ❌ Unreliable | ❌ Not supported | Medium | None | ❌ Failed |
+| File Commit | ✅ Works | ✅ Works | High | Commits pollution | ❌ Failed |
+| **Git Tags** | ✅ Works | ✅ Works | Low | Clean tags only | ✅ **Success** |
+
+### Alternative Approaches Tested
+
+#### ❌ Approach 1: `workflow_run` with `head_sha`
+```yaml
+# Initial CD-Prod implementation
+on:
   workflow_run:
     workflows: ["CD-Test Pipeline"]
     types: [completed]
+
+# SHA extraction attempt
+GIT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+```
+
+**Why it Failed**:
+- ✅ **SHA Extraction**: Successfully got develop branch SHA
+- ❌ **Manual Approval**: Environment approval gates don't work with `workflow_run` triggers
+- ❌ **Production Safety**: No human oversight before deployment
+
+#### ❌ Approach 2: GitHub Actions Artifacts
+```yaml
+# CD-Test: Upload SHA as artifact
+- name: Upload Git SHA Artifact
+  uses: actions/upload-artifact@v4
+  with:
+    name: git-sha
+    path: git_sha.txt
+
+# CD-Prod: Download SHA artifact
+- name: Download Git SHA Artifact
+  uses: actions/download-artifact@v4
+  with:
+    name: git-sha
+```
+
+**Why it Failed**:
+- ❌ **Cross-Workflow Access**: Artifacts are workflow-local by default
+- ❌ **Complex Sharing**: No direct cross-workflow artifact access
+- ❌ **Still Manual Approval Issue**: Would still require `workflow_run` trigger
+
+#### ❌ Approach 3: Workflow Outputs with `workflow_run`
+```yaml
+# CD-Test: Set output
+outputs:
+  git_sha: ${{ steps.git_sha.outputs.sha }}
+
+# CD-Prod: Access output
+run: |
+  GIT_SHA=${{ github.event.workflow_run.outputs.git_sha }}
+```
+
+**Why it Failed**:
+- ❌ **Workflow Outputs**: `workflow_run.outputs` not reliably accessible
+- ❌ **GitHub Actions Limitation**: Outputs don't propagate across `workflow_run` triggers
+- ❌ **Manual Approval Issue**: Still can't use Environment gates
+
+#### ❌ Approach 4: File-Based Communication
+```yaml
+# Store SHA in repository file
+echo "${{ github.sha }}" > .github/last-tested-sha.txt
+git add .github/last-tested-sha.txt
+git commit -m "Update tested SHA"
+```
+
+**Why it Failed**:
+- ❌ **Repository Pollution**: Creates unnecessary commits
+- ❌ **Complexity**: Requires additional Git operations
+- ❌ **Race Conditions**: Multiple concurrent builds could conflict
+
+### ✅ Final Solution: Git Tag-Based Communication
+
+**Why Git Tags Work**:
+- ✅ **Repository-Wide Visibility**: Tags are accessible across all workflows
+- ✅ **No Commit Pollution**: Tags don't create additional commits
+- ✅ **Force Update**: `-f` flag allows overwriting existing tags
+- ✅ **Manual Approval Compatible**: Works with `push` trigger (not `workflow_run`)
+- ✅ **Git-Native**: Uses standard Git mechanisms
+- ✅ **Audit Trail**: Tag history provides deployment tracking
+
+```bash
+# CD-Test: Create tag pointing to tested commit
+git tag -f latest-tested ${{ github.sha }}
+git push origin --force --tags
+
+# CD-Prod: Resolve tag to get tested SHA
+GIT_SHA=$(git rev-parse latest-tested)
 ```
 
 ### Pipeline Steps
 
-1. **Trigger Validation**: Only proceed if CD-Test succeeded on develop branch
-2. **Code Checkout**: Retrieve main branch code for deployment context
-3. **Docker Setup**: Configure Buildx and login to GHCR
-4. **SHA Extraction**: Extract commit SHA from triggering workflow
+1. **Manual Approval**: Pipeline blocked immediately by `environment: production` requirement
+   - Configured reviewers receive notification
+   - Complete pipeline paused until manual approval
+   - Human oversight before any production activities
+2. **Code Checkout**: Retrieve main branch code with full Git history (`fetch-depth: 0`) (after approval)
+3. **SHA Resolution**: Extract commit SHA from `latest-tested` tag
    ```bash
-   GIT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+   GIT_SHA=$(git rev-parse latest-tested)
    ```
+4. **Docker Setup**: Configure Buildx and login to GHCR
 5. **Image Pull**: Download exact image built and tested in CD-Test
-6. **Manual Approval**: Wait for production environment approval
-7. **Deployment**: Deploy container with `docker run -d -p 80:80`
+6. **Deployment**: Deploy container with `docker run -d -p 80:80`
 
-### Critical SHA Management
-The pipeline uses `github.event.workflow_run.head_sha` to ensure:
-- **Same Image**: Pulls exact image that passed CD-Test
-- **Traceability**: Deployment uses tested develop branch commit
-- **Consistency**: No rebuild, just deployment of verified artifact
+### Git Tag-Based SHA Management
+The pipeline uses Git tags to ensure cross-pipeline communication:
+- **Tag Creation**: CD-Test creates `latest-tested` tag on successful image push
+- **Tag Resolution**: CD-Prod resolves tag to get tested commit SHA
+- **Consistency**: Guarantees deployment of verified artifact from develop branch
 
 ### Manual Approval Gate
 - **Environment**: `production` with required reviewers
-- **Process**: Pipeline pauses before deployment step
-- **Security**: Human validation before production changes
+- **Process**: Complete pipeline blocked at job start until approval
+- **Security**: Human validation before any production activities
+- **Compatibility**: Works with `push` trigger (unlike `workflow_run`)
 
 ---
 
@@ -181,20 +294,30 @@ feature/xyz → develop → main
     CI      CD-Test  CD-Prod
 ```
 
-### SHA Flow Across Pipelines
+### Git Tag-Based SHA Flow
 
-1. **Developer pushes to develop**: Commit SHA `abc1234`
-2. **CD-Test builds image**: Tagged as `myapp:abc1234`
-3. **CD-Prod triggers**: Extracts SHA `abc1234` from workflow event
-4. **Production deployment**: Pulls and deploys `myapp:abc1234`
+1. **Developer pushes to develop**: Commit SHA `abc123def456...`
+2. **CD-Test builds image**: Tagged as `myapp:abc123def456...`
+3. **CD-Test creates Git tag**: `latest-tested` → `abc123def456...`
+4. **Developer merges to main**: Triggers CD-Prod pipeline
+5. **CD-Prod resolves tag**: `git rev-parse latest-tested` → `abc123def456...`
+6. **Production deployment**: Pulls and deploys exact tested image
 
-### Key Innovation: Cross-Pipeline SHA Passing
-```yaml
-# CD-Prod extracts SHA from triggering workflow
-GIT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+### Key Innovation: Git Tag Communication
+```bash
+# CD-Test: Create tag pointing to tested commit
+git tag -f latest-tested ${{ github.sha }}
+git push origin --force --tags
+
+# CD-Prod: Resolve tag to get tested SHA
+GIT_SHA=$(git rev-parse latest-tested)
 ```
 
-This ensures CD-Prod deploys the exact image built in CD-Test, maintaining complete traceability.
+**Benefits of this approach:**
+- ✅ **Solves SHA mismatch**: CD-Prod gets develop branch SHA (not main branch SHA)
+- ✅ **Enables manual approval**: Works with `push` trigger (not `workflow_run`)
+- ✅ **Git-native solution**: Uses standard Git tagging mechanism
+- ✅ **Complete traceability**: Exact image from develop branch deployed to production
 
 ---
 
@@ -308,6 +431,65 @@ docker run -d -p 8080:80 myapp:test
 - **Testing**: pytest validates application functionality
 - **Build verification**: Docker build confirms deployment readiness
 - **Manual review**: Production approval gate ensures human oversight
+
+---
+
+## 11. GitHub Actions UI Configuration
+
+### Environment: `production`
+
+| Setting | Configuration Path | Purpose |
+|---------|-------------------|----------|
+| Create Environment | Repository > Settings > Environments > New environment | Controls manual approval for production deployments |
+| Required Reviewers | Inside `production` environment → Add reviewers | Only authorized personnel can approve prod deployments |
+| Deployment Protection Rule | Optional, if using API/external approval logic | Enhanced security, often not needed with GitHub internal approval |
+
+### GitHub Secrets: `CR_PAT`
+
+| Setting | Configuration Path | Purpose |
+|---------|-------------------|----------|
+| Secret `CR_PAT` | Repository > Settings > Secrets and variables > Actions → New repository secret | Authenticates Docker Push/Pull with GitHub Container Registry |
+| Token Creation | GitHub > Settings > Developer Settings > Personal Access Tokens | Token requires: `read:packages`, `write:packages`, `repo` scopes |
+
+### GitHub Actions Permissions
+
+| Setting | Configuration Path | Purpose |
+|---------|-------------------|----------|
+| Workflow Permissions | Repository > Settings > Actions > General > Workflow permissions | Follows principle of least privilege |
+| Read Access | Enable "Read access to contents and metadata" | Allows workflow checkout, SHA access, tag reading |
+| Optional PR Creation | "Allow GitHub Actions to create and approve pull requests" | Only if using Actions for automated PRs/tags |
+
+⚠️ Note: Workflows can also set specific permissions as shown in `cd_prod.yml`:
+```yaml
+permissions:
+  contents: read
+  actions: read
+```
+
+### Branch Protection: `develop`
+
+| Setting | Configuration Path | Purpose |
+|---------|-------------------|----------|
+| Branch Protection Rule | Repository > Settings > Branches > Add rule → Branch: `develop` | Prevents direct pushes to develop |
+| Status Checks | Enable "Require status checks to pass before merging" | Blocks merges if CI/CD fails |
+| Required Checks | Select `CI Build`, `CD-Test deploy` | Ensures only validated code proceeds |
+| Optional Reviews | "Require pull request reviews before merging" | If code review enforcement needed |
+
+### Optional Tag Protection
+
+| Setting | Configuration Path | Purpose |
+|---------|-------------------|----------|
+| Tag Environment | Optional for deployment on tags | Enhanced control over tested commits |
+| Tag Protection Rules | Settings > Branches > Tag protection rules | Prevents `latest-tested` manipulation |
+
+### Configuration Checklist
+
+| Component | Required | Purpose |
+|-----------|----------|----------|
+| `production` Environment | ✅ | Guards production deployments |
+| `CR_PAT` Secret | ✅ | Container Registry authentication |
+| Actions Permissions | ✅ | Security and integrity |
+| Branch Protection | ✅ | Ensures CI/CD quality |
 
 ---
 

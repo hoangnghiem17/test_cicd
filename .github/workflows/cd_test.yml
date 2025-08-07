@@ -16,6 +16,35 @@ jobs:
       with:
         fetch-depth: 0  # Wichtig: vollständiger Git-Verlauf, um Tags pushen zu können
 
+    # NEW: Automated Testing Steps
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+
+    - name: Install dependencies
+      run: |
+        poetry install --no-root
+
+    - name: Run Automated Tests
+      run: |
+        echo "Running automated tests before Docker build..."
+        poetry run python scripts/run_automated_tests.py
+
+    - name: Upload Test Results as Artifact
+      uses: actions/upload-artifact@v4
+      if: always()  # Upload results even if tests fail
+      with:
+        name: test-results
+        path: |
+          test_results/binary_results.txt
+          test_results/detailed_results.json
+
+    # Docker and Registry Steps (only run if tests pass)
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 

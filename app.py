@@ -15,4 +15,4 @@ def fetch_greeting(url='https://api.github.com'):
 if __name__ == "__main__":
     while True:
         print(fetch_greeting())
-        time.sleep(60)  # Wait for 60 seconds before repeating 
+        time.sleep(60)  # Wait for 60 seconds before repeating

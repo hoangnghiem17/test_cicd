@@ -22,13 +22,6 @@ jobs:
       with:
         fetch-depth: 0  # Voller Git-Verlauf, um Tags abzufragen
 
-    - name: Get commit SHA behind latest-tested tag
-      id: get_sha
-      run: |
-        GIT_SHA=$(git rev-parse latest-tested)
-        echo "GIT_SHA=$GIT_SHA" >> $GITHUB_ENV
-        echo "Commit SHA from latest-tested tag: $GIT_SHA"
-
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
@@ -39,11 +32,16 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
 
-    - name: Pull Docker image
+    - name: Pull Docker image (latest-tested)
       run: |
-        echo "Pulling image with SHA: ${{ env.GIT_SHA }}"
-        docker pull ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
+        docker pull ghcr.io/${{ github.repository }}/myapp:latest-tested
+
+    - name: Read embedded commit SHA label (for logs/audit)
+      run: |
+        IMG=ghcr.io/${{ github.repository }}/myapp:latest-tested
+        REV=$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' $IMG)
+        echo "Deploying image built from commit: $REV"
 
     - name: Deploy Application
       run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:${{ env.GIT_SHA }}
+        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:latest-tested

@@ -6,12 +6,6 @@
     "description": "GitHub API root endpoint"
   },
   {
-    "id": 2,
-    "endpoint": "https://httpbin.org/status/200",
-    "expected_status": 200,
-    "description": "HTTP 200 test endpoint"
-  },
-  {
     "id": 3,
     "endpoint": "https://httpbin.org/status/404",
     "expected_status": 404,

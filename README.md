@@ -26,8 +26,9 @@ Feature Branch → PR to develop → CI Pipeline → Merge → CD-Test Pipeline 
 
 ### Key Components
 - **CI Pipeline**: Code validation, linting, testing, Docker build verification
-- **CD-Test Pipeline**: Build, tag, and push Docker images to registry
+- **CD-Test Pipeline**: Automated testing, build, tag, and push Docker images to registry
 - **CD-Prod Pipeline**: Pull tested images and deploy to production with manual approval
+- **Automated Testing**: Binary pass/fail validation before Docker operations
 - **Git-Flow**: Feature branches → develop → main
 - **SHA-based Versioning**: Ensures exact image traceability across environments
 
@@ -49,12 +50,18 @@ test_cicd/
 │   ├── ci.yml              # CI Pipeline (PR validation)
 │   ├── cd_test.yml         # CD-Test Pipeline (develop deployment)
 │   └── cd_prod.yml         # CD-Prod Pipeline (production deployment)
+├── scripts/
+│   └── run_automated_tests.py  # Automated testing script
+├── test_data/
+│   ├── input_data.json     # Test scenarios (URLs, descriptions)
+│   └── reference_data.json # Expected results for each test
 ├── tests/
 │   └── test_app.py         # Unit tests
 ├── app.py                  # Main application
 ├── Dockerfile              # Container configuration
 ├── pyproject.toml          # Poetry project configuration
 ├── poetry.lock             # Dependency lock file
+├── AUTOMATED_TESTING.md    # Detailed testing documentation
 └── README.md               # This documentation
 ```
 
@@ -68,6 +75,15 @@ test_cicd/
 **tests/test_app.py**: Unit tests validating application logic
 - Tests the `fetch_greeting()` function
 - Ensures CI pipeline validates actual code functionality
+
+**scripts/run_automated_tests.py**: Automated testing for CD-Test pipeline
+- Loads test scenarios and compares app output with expected results
+- Generates binary results (1/0) per test case
+- Blocks pipeline if any test fails
+
+**test_data/**: Fixed test data for automated validation
+- `input_data.json`: Test scenarios with different HTTP endpoints
+- `reference_data.json`: Expected application responses for each scenario
 
 ---
 
@@ -117,12 +133,18 @@ on:
 ### Pipeline Steps
 
 1. **Code Checkout**: Retrieve merged develop branch code with full Git history
-2. **Docker Setup**: Configure Buildx for multi-platform builds
-3. **Registry Login**: Authenticate with GitHub Container Registry
-4. **Docker Build**: Create linux/amd64 image with `docker buildx build`
-5. **Image Tagging**: Tag image with full commit SHA: `ghcr.io/REPO/myapp:${{ github.sha }}`
-6. **Registry Push**: Upload tagged image to GHCR
-7. **Git Tag Creation**: Create/update `latest-tested` tag pointing to current commit
+2. **Python Setup**: Install Python 3.9 and Poetry dependency manager
+3. **Automated Testing**: Run test suite comparing app output against reference data
+   - Tests 5 scenarios: GitHub API, HTTP 200/404/500, network timeout
+   - Generates binary results (1/0) per test case
+   - **Pipeline blocked if any test fails**
+4. **Test Results Upload**: Save binary and detailed results as GitHub artifacts
+5. **Docker Setup**: Configure Buildx for multi-platform builds (only if tests pass)
+6. **Registry Login**: Authenticate with GitHub Container Registry
+7. **Docker Build**: Create linux/amd64 image with `docker buildx build`
+8. **Image Tagging**: Tag image with full commit SHA: `ghcr.io/REPO/myapp:${{ github.sha }}`
+9. **Registry Push**: Upload tagged image to GHCR
+10. **Git Tag Creation**: Create/update `latest-tested` tag pointing to current commit
    ```bash
    git tag -f latest-tested ${{ github.sha }}
    git push origin --force --tags
@@ -135,6 +157,9 @@ on:
 - **Example**: `ghcr.io/hoangnghiem17/test_cicd/myapp:abc123def456...`
 
 ### Key Features
+- **Automated Quality Gates**: Tests application functionality before Docker operations
+- **Binary Test Results**: 1/0 output per test case for clear pass/fail tracking
+- **Pipeline Blocking**: Failed tests prevent untested code from reaching registry
 - **Immutable versioning**: Each commit gets unique image tag
 - **Platform optimization**: Built specifically for linux/amd64
 - **Registry integration**: Automatic push to private GHCR

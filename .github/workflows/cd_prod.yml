@@ -42,6 +42,23 @@ jobs:
         REV=$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' $IMG)
         echo "Deploying image built from commit: $REV"
 
-    - name: Deploy Application
+    - name: Start prod container (smoke test)
       run: |
-        docker run -d -p 80:80 ghcr.io/${{ github.repository }}/myapp:latest-tested
+        docker run -d --name prod-app -p 80:80 ghcr.io/${{ github.repository }}/myapp:latest-tested
+
+    - name: Verify container started and produced logs
+      run: |
+        set -e
+        # wait up to ~30s for first output line
+        for i in {1..15}; do
+          if docker logs prod-app 2>&1 | grep -E "Hello, CI/CD Pipeline!|Failed to fetch greeting"; then
+            echo "Container produced output"; break
+          fi
+          sleep 2
+        done
+        # ensure container is still running
+        docker ps --filter "name=prod-app" --filter "status=running" --format '{{.Names}}' | grep -q '^prod-app$'
+
+    - name: Stop and remove prod container
+      if: always()
+      run: docker rm -f prod-app || true

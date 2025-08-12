@@ -13,8 +13,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-      with:
-        fetch-depth: 0  # Vollständiger Git-Verlauf, um Tags pushen zu können
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2

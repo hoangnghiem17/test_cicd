@@ -53,6 +53,15 @@ jobs:
         echo "Container did not reach running state in time" >&2
         exit 1
 
+    - name: Promote image to prod-current
+      if: ${{ success() }}
+      run: |
+        set -e
+        SRC=ghcr.io/${{ github.repository }}/myapp:latest-tested
+        TGT=ghcr.io/${{ github.repository }}/myapp:prod-current
+        docker tag "$SRC" "$TGT"
+        docker push "$TGT"
+
     - name: Stop and remove prod container
       if: always()
       run: docker rm -f prod-app || true

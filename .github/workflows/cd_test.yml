@@ -17,7 +17,7 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
-    - name: Build image (load locally) with commit SHA tag
+    - name: Build image with commit SHA tag
       run: |
         docker buildx build \
           --platform linux/amd64 \
